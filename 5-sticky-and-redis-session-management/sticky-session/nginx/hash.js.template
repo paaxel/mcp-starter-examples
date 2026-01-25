@@ -1,0 +1,23 @@
+function pick_backend(r) {
+    const ip = r.remoteAddress || 'unknown';
+
+    const SERVER_NUM = ${SERVER_NUM};
+
+    let hash = 1;
+    const PRIME_NUMBER = 31;
+
+    for (let i = 0; i < ip.length; i++) {
+        hash = (hash * PRIME_NUMBER + ip.charCodeAt(i)) >>> 0;
+    }
+
+    const instance = hash % SERVER_NUM;
+    const backend = "backend_" + instance;
+
+    r.error(
+        `LB decision: request from ip ${ip} sent to instance ${instance}`
+    );
+
+    return backend;
+}
+
+export default { pick_backend };

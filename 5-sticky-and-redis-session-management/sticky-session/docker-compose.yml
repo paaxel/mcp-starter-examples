@@ -1,0 +1,47 @@
+services:
+  nginx:
+    build: ./nginx
+    ports:
+      - "8080:80"
+    environment:
+      SERVER_NUM: 2
+    depends_on:
+      - app1
+      - app2
+    networks:
+      - servicenetwork
+
+  app1:
+    build:
+      context: ..
+      dockerfile: sticky-session/Dockerfile
+    container_name: app1
+    environment:
+      MCP_PORT: 8080
+      MCP_HOST: 0.0.0.0
+      ALLOWED_ORIGINS: "http://localhost:6274"
+      INSTANCE_ID: app1
+    networks:
+      - servicenetwork
+
+  app2:
+    build:
+      context: ..
+      dockerfile: sticky-session/Dockerfile
+    container_name: app2
+    environment:
+      MCP_PORT: 8080
+      MCP_HOST: 0.0.0.0
+      ALLOWED_ORIGINS: "http://localhost:6274"
+      INSTANCE_ID: app2
+    networks:
+      - servicenetwork
+
+
+networks:
+  servicenetwork:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 10.248.0.0/24
