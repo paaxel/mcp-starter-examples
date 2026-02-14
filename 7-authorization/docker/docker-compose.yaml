@@ -1,0 +1,41 @@
+services:
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:23.0
+    container_name: oauth-server
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_HTTP_PORT: 8080
+    ports:
+      - "8085:8080"
+    command:
+      - start-dev
+    volumes:
+      - keycloak_data:/opt/keycloak/data
+    networks:
+      - mcp-network
+
+  redis:
+    image: redis:8-alpine
+    container_name: redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mcp-network
+
+volumes:
+  redis_data:
+  keycloak_data:
+
+networks:
+  mcp-network:
+    driver: bridge
