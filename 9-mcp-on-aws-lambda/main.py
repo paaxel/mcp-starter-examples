@@ -5,6 +5,7 @@ from starlette.middleware.cors import CORSMiddleware
 
 from app.config import Config
 from app.mcp_endpoints import register_routes
+from app.request_state_key import get_request_state_key
 from app.security.middleware import HostOriginValidationMiddleware
 from app.storage import get_session_state_store
 
@@ -17,9 +18,10 @@ def create_app() -> FastMCP:
         Configured FastMCP instance
     """
     extra_kwargs = {}
-    if Config.REQUEST_STATE_KEY:
+    request_state_key = get_request_state_key()
+    if request_state_key:
         extra_kwargs["request_state_security"] = RequestStateSecurity(
-            keys=[Config.REQUEST_STATE_KEY.encode()]
+            keys=[request_state_key]
         )
 
     # Session state lives in Redis, so any replica can serve any request

@@ -1,0 +1,10 @@
+﻿.idea
+infra
+.build
+.aws-sam
+__pycache__
+README.md
+deploy.py
+template.yaml
+.samignore
+.gitignore

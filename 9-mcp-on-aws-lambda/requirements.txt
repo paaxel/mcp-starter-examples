@@ -1,0 +1,4 @@
+﻿fastmcp==4.1.0
+py-key-value-aio[dynamodb]
+uvicorn==0.40.0
+mangum==0.22.0
