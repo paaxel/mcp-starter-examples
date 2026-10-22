@@ -1,3 +1,6 @@
+import hashlib
+import json
+
 from fastmcp import Context, FastMCP
 from fastmcp.server.dependencies import get_session
 from fastmcp.server.sessions import SessionId
@@ -15,8 +18,11 @@ from mcp.types import (
 from app.services.note_service import NoteService
 
 
-def confirm(key: str, message: str) -> InputRequiredResult:
-    """Ask the user for a yes/no confirmation on the next round."""
+def confirm(key: str, message: str, state: dict | None = None) -> InputRequiredResult:
+    """Ask the user for a yes/no confirmation on the next round.
+
+    `state` is carried in the request_state, which the server seals and hands back on the next round.
+    """
     params = ElicitRequestFormParams(
         message=message,
         requested_schema={
@@ -28,6 +34,7 @@ def confirm(key: str, message: str) -> InputRequiredResult:
     return InputRequiredResult(
         result_type="input_required",
         input_requests={key: ElicitRequest(method="elicitation/create", params=params)},
+        request_state=json.dumps(state) if state is not None else None,
     )
 
 
@@ -130,6 +137,9 @@ def register_note_routes(mcp: FastMCP):
             return answer.content.text
         return "The client returned no classification."
 
+    def _digest(content: str) -> str:
+        return hashlib.sha256(content.encode()).hexdigest()
+
     @mcp.tool(description="Delete all stored notes in the personal note system")
     async def delete_all_notes(session_id: SessionId, ctx: Context) -> dict | InputRequiredResult:
         """
@@ -138,14 +148,34 @@ def register_note_routes(mcp: FastMCP):
         Returns:
             Dictionary with status and message, or an input request asking for confirmation
         """
+        session = await get_session(session_id)  # validate before asking
+        content = await NoteService.read_notes_content(session)
+        if not content or not content.strip():
+            return {"status": "ok", "message": "There are no notes to delete."}
+
+        current = _digest(content)
+
         responses = ctx.input_responses
         if responses is None:
-            return confirm("confirm", "Are you sure you want to delete ALL notes?")
+            # Round 1: remember what the user is about to approve
+            return confirm(
+                "confirm",
+                "Are you sure you want to delete ALL notes?",
+                state={"notes_digest": current},
+            )
 
-        cancelled = not_confirmed(responses["confirm"])
+        # Round 2: the token was sealed by the server, so the client cannot alter it
+        confirmed = json.loads(ctx.request_state or "{}")
+        if confirmed.get("notes_digest") != current:
+            return {
+                "status": "cancelled",
+                "message": "Your notes changed after the confirmation. Please retry.",
+            }
+
+        cancelled = not_confirmed(responses.get("confirm"))
         if cancelled is not None:
             return cancelled
-        session = await get_session(session_id)
+
         return await NoteService.delete_all_notes(session)
 
     @mcp.tool(description="Delete notes, stored in the personal note system, that contains specific text")
